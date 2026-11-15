@@ -31,3 +31,4 @@ jobs:
             --exclude '.git' \
             --exclude '.github' \
             ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.TARGET_DIR }}/
+

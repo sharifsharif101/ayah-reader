@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>لوحة التحكم والإحصائيات · قارئ الآيات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --f-ui: 'Readex Pro', sans-serif;
+  --bg: #F4EFE6;
+  --card: #FFFFFF;
+  --ink: #10252A;
+  --ink-2: #3E5A60;
+  --ink-3: #6B858B;
+  --line: #E2D9C8;
+  --accent: #1A535C;
+  --accent-soft: #DDE9E3;
+  --shadow: 0 4px 20px rgba(13,46,52,.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--f-ui);
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.header {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header h1 {
+  font-size: 1.25rem;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.nav-link {
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: .88rem;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  transition: all .2s;
+}
+.nav-link:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.container {
+  max-width: 1000px;
+  margin: 30px auto;
+  padding: 0 20px;
+  flex: 1;
+  width: 100%;
+}
+/* Login Modal */
+#loginOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 37, 42, .6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.login-box {
+  background: var(--card);
+  padding: 32px;
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.15);
+  width: min(380px, 90vw);
+  text-align: center;
+}
+.login-box h2 {
+  font-size: 1.2rem;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.login-box p {
+  font-size: .88rem;
+  color: var(--ink-3);
+  margin-bottom: 20px;
+}
+.login-box input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 1.1rem;
+  font-family: inherit;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  text-align: center;
+  margin-bottom: 14px;
+  outline: none;
+  transition: border-color .2s;
+}
+.login-box input:focus {
+  border-color: var(--accent);
+}
+.login-box button {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+.login-box button:hover {
+  opacity: .92;
+}
+.error-msg {
+  color: #DC2626;
+  font-size: .84rem;
+  margin-top: 10px;
+  display: none;
+}
+/* Dashboard Content */
+.card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+}
+.card h2 {
+  font-size: 1.1rem;
+  color: var(--accent);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.grid-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.stat-box {
+  background: var(--bg);
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  text-align: center;
+}
+.stat-box .title {
+  font-size: .85rem;
+  color: var(--ink-3);
+  margin-bottom: 8px;
+}
+.stat-box .val {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.setup-guide {
+  background: var(--accent-soft);
+  border: 1px solid rgba(26, 83, 92, .2);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.setup-guide h3 {
+  font-size: 1rem;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.setup-guide p {
+  font-size: .88rem;
+  color: var(--ink-2);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+.setup-guide a {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  padding: 8px 18px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: .85rem;
+}
+iframe {
+  width: 100%;
+  height: 650px;
+  border: 0;
+  border-radius: 12px;
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <h1>📊 لوحة التحكم والإحصائيات</h1>
+  <div style="display:flex;gap:10px">
+    <a href="/" class="nav-link">📖 فتح المصحف</a>
+    <button id="logoutBtn" class="nav-link" style="cursor:pointer;background:none">خروج</button>
+  </div>
+</header>
+
+<div class="container" id="dashContent" style="display:none">
+  
+  <div class="card">
+    <h2>📈 إحصائيات زوار قارئ الآيات</h2>
+    <div id="statsContainer">
+      <div class="setup-guide">
+        <h3>🔗 تفعيل لوحة الإحصائيات الحية</h3>
+        <p>
+          لقياس النقرات والزوار الجدد وزوار اليوم بدقة كاملة وبدون أي قواعد بيانات، المنصة مربوطة مع <strong>GoatCounter</strong>.<br>
+          إذا أنشأت حساباً مجانياً باسم موقعك (مثلاً: <code>ayah-reader</code>)، يمكنك إدخاله هنا لتعرض اللوحة الإحصائيات مباشرة:
+        </p>
+        <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+          <input type="text" id="gcCodeInput" placeholder="اسم حسابك (مثلاً: ayah-reader)" style="flex:1;min-width:220px;padding:8px 14px;border:1px solid var(--line);border-radius:8px;font-family:inherit">
+          <button id="saveGcBtn" style="padding:8px 18px;background:var(--accent);color:#fff;border:0;border-radius:8px;font-family:inherit;font-weight:600;cursor:pointer">حفظ وعرض اللوحة</button>
+        </div>
+        <a href="https://www.goatcounter.com/signup" target="_blank" rel="noopener">فتح صفحة إنشاء الحساب المجاني (30 ثانية) ↗</a>
+      </div>
+
+      <div id="frameWrap" style="display:none">
+        <iframe id="gcFrame" src=""></iframe>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>⚙️ معلومات النظام والمشروع</h2>
+    <div style="font-size:.9rem;line-height:1.8;color:var(--ink-2)">
+      <p>• <strong>المستودع:</strong> <a href="https://github.com/sharifsharif101/ayah-reader" target="_blank" style="color:var(--accent)">sharifsharif101/ayah-reader</a></p>
+      <p>• <strong>النشر التلقائي (Auto Deployment):</strong> مفعّل ونشط عبر GitHub Actions</p>
+      <p>• <strong>النطاق:</strong> <a href="https://quran.tools-box.vip" target="_blank" style="color:var(--accent)">https://quran.tools-box.vip</a></p>
+      <p>• <strong>المطور:</strong> abd.sha.dev.1991@gmail.com (+966535139673)</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- نافذة القفل بكلمة المرور -->
+<div id="loginOverlay">
+  <div class="login-box">
+    <h2>🔒 منطقة الإدارة</h2>
+    <p>أدخل رمز المرور للدخول إلى الإحصائيات</p>
+    <input type="password" id="pwdInput" placeholder="••••" autofocus maxlength="10">
+    <button id="loginBtn">دخول</button>
+    <p class="error-msg" id="errMsg">رمز المرور غير صحيح!</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  const PASS = '2030';
+  const overlay = document.getElementById('loginOverlay');
+  const dash = document.getElementById('dashContent');
+  const pwdInput = document.getElementById('pwdInput');
+  const loginBtn = document.getElementById('loginBtn');
+  const errMsg = document.getElementById('errMsg');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const gcCodeInput = document.getElementById('gcCodeInput');
+  const saveGcBtn = document.getElementById('saveGcBtn');
+  const frameWrap = document.getElementById('frameWrap');
+  const gcFrame = document.getElementById('gcFrame');
+
+  function unlock() {
+    overlay.style.display = 'none';
+    dash.style.display = 'block';
+    sessionStorage.setItem('ayah_admin_auth', '1');
+    loadGc();
+  }
+
+  function check() {
+    if (pwdInput.value === PASS) {
+      errMsg.style.display = 'none';
+      unlock();
+    } else {
+      errMsg.style.display = 'block';
+      pwdInput.value = '';
+      pwdInput.focus();
+    }
+  }
+
+  loginBtn.addEventListener('click', check);
+  pwdInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') check(); });
+
+  if (sessionStorage.getItem('ayah_admin_auth') === '1') {
+    unlock();
+  }
+
+  logoutBtn.addEventListener('click', () => {
+    sessionStorage.removeItem('ayah_admin_auth');
+    location.reload();
+  });
+
+  function loadGc() {
+    const code = localStorage.getItem('ayah_gc_code') || 'quran-ayah';
+    gcCodeInput.value = code;
+    if (code) {
+      gcFrame.src = `https://${code}.goatcounter.com`;
+      frameWrap.style.display = 'block';
+    }
+  }
+
+  saveGcBtn.addEventListener('click', () => {
+    const val = gcCodeInput.value.trim().replace('.goatcounter.com', '').replace('https://', '');
+    if (val) {
+      localStorage.setItem('ayah_gc_code', val);
+      loadGc();
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
