@@ -451,12 +451,12 @@ FORM: Operate — قارئ بمقاس تلقائي.
       </div>
       <p class="set-h">المظهر</p>
       <div class="opts c3" id="themeOpts"></div>
-      <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;font-size:.78rem;color:var(--ink-3)">
-        <span>تواصل مع المطور</span>
-        <div style="display:flex;gap:8px">
+      <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:.78rem;color:var(--ink-3)">
+        <span>تواصل مع المطور:</span>
+        <div style="display:flex;gap:8px;align-items:center">
           <a href="https://wa.me/966535139673" target="_blank" rel="noopener" style="color:#25D366;font-weight:600;text-decoration:none">واتساب</a>
           <span>·</span>
-          <a href="mailto:abd.sha.dev.1991@gmail.com" style="color:var(--accent);font-weight:600;text-decoration:none">إيميل</a>
+          <span style="font-family:monospace,sans-serif;color:var(--accent);-webkit-user-select:text!important;user-select:text!important;cursor:text;direction:ltr">abd.sha.dev.1991@gmail.com</span>
         </div>
       </div>
     </div>
@@ -547,17 +547,20 @@ FORM: Operate — قارئ بمقاس تلقائي.
     <div class="row"><span>تبديل المظهر</span><span class="keys"><span class="kbd">T</span></span></div>
     <div class="row"><span>نسخ نص الآية</span><span class="keys"><span class="kbd">Ctrl C</span></span></div>
     <div class="row"><span>هذه النافذة</span><span class="keys"><span class="kbd">؟</span></span></div>
-    <div style="grid-column:1/-1;margin-top:18px;padding-top:14px;border-top:1px dashed var(--line);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-      <span style="font-size:.85rem;color:var(--ink-2);font-weight:600">تواصل مع المطور</span>
-      <div style="display:flex;gap:8px;align-items:center">
-        <a href="https://wa.me/966535139673" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--pill);background:#25D366;color:#fff;text-decoration:none;font-size:.82rem;font-weight:600;box-shadow:0 2px 6px rgba(37,211,102,.25)">
+    <div style="grid-column:1/-1;margin-top:20px;padding-top:16px;border-top:1px dashed var(--line);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <span style="font-size:.88rem;color:var(--ink-2);font-weight:600">تواصل مع المطور:</span>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <a href="https://wa.me/966535139673" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--pill);background:#25D366;color:#fff;text-decoration:none;font-size:.84rem;font-weight:600;box-shadow:0 2px 6px rgba(37,211,102,.25)">
           <svg style="width:16px;height:16px;fill:currentColor" viewBox="0 0 24 24"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2z"/></svg>
           واتساب
         </a>
-        <a href="mailto:abd.sha.dev.1991@gmail.com" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--pill);background:var(--accent-soft);color:var(--accent);text-decoration:none;font-size:.82rem;font-weight:600;border:1px solid var(--line)">
-          <svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
-          إيميل
-        </a>
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:var(--pill);background:var(--surface);border:1px solid var(--line);direction:ltr">
+          <span id="devEmailVal" style="font-family:monospace,sans-serif;font-size:.85rem;color:var(--accent);-webkit-user-select:text!important;user-select:text!important;cursor:text;direction:ltr">abd.sha.dev.1991@gmail.com</span>
+          <button type="button" id="copyEmailBtn" title="نسخ الإيميل" style="cursor:pointer;padding:3px 8px;border-radius:4px;background:var(--accent-soft);color:var(--accent);font-size:.76rem;font-weight:600;border:0;display:inline-flex;align-items:center;gap:4px">
+            <svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            نسخ
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -1481,6 +1484,16 @@ async function copyVerse() {
   toast('تم نسخ الآية ' + toAr(idx + 1), { ms: 1600 });
 }
 copyBtn.addEventListener('click', copyVerse);
+const copyEmailBtn = $('copyEmailBtn');
+if (copyEmailBtn) {
+  copyEmailBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText('abd.sha.dev.1991@gmail.com').then(() => {
+      toast('تم نسخ الإيميل: abd.sha.dev.1991@gmail.com', { ms: 2200 });
+    }).catch(() => {
+      toast('تم تحديد الإيميل لنسخه', { ms: 2000 });
+    });
+  });
+}
 
 /* ═════════ نافذة الاختصارات ═════════ */
 function openHelp() { closeJump(); closeSettings(); if (!helpDlg.open) helpDlg.showModal(); showChrome(); }
