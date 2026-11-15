@@ -291,7 +291,7 @@ body.focus:not(.chrome-on) .fhandle{display:grid}
 body.focus .app{padding:0;gap:0;grid-template-rows:minmax(0,1fr)}
 body.focus .paper{border-radius:0;border:0}
 body.focus .paper::after,body.focus .paper-star{display:none}
-body.focus .scroll{border-radius:0}
+body.focus .scroll{border-radius:0;cursor:crosshair}
 body.focus .topbar,body.focus .deck{position:absolute;z-index:32;background:color-mix(in srgb,var(--page) 90%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transition:opacity .25s,transform .35s var(--ease)}
 body.focus .topbar{top:0;inset-inline:0;padding:10px 16px;border-bottom:1px solid var(--line)}
 body.focus .deck{bottom:14px;inset-inline:14px;margin-inline:auto;max-width:1180px;box-shadow:var(--shadow)}
@@ -299,7 +299,7 @@ body.focus .chrome{opacity:0;pointer-events:none}
 body.focus .topbar.chrome{transform:translateY(-12px)}
 body.focus .deck.chrome{transform:translateY(14px)}
 body.focus.chrome-on .chrome{opacity:1;pointer-events:auto;transform:none}
-body.focus:not(.chrome-on) .scroll{cursor:none}
+body.focus:not(.chrome-on) .scroll{cursor:crosshair}
 body.focus .toast{bottom:96px}
 
 /* ───────── الاستجابة ───────── */
