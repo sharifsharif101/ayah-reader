@@ -220,23 +220,20 @@ iframe {
 <div class="container" id="dashContent" style="display:none">
   
   <div class="card">
-    <h2>📈 إحصائيات زوار قارئ الآيات</h2>
+    <h2>📈 إحصائيات زوار قارئ الآيات (GoatCounter)</h2>
     <div id="statsContainer">
-      <div class="setup-guide">
-        <h3>🔗 تفعيل لوحة الإحصائيات الحية</h3>
-        <p>
-          لقياس النقرات والزوار الجدد وزوار اليوم بدقة كاملة وبدون أي قواعد بيانات، المنصة مربوطة مع <strong>GoatCounter</strong>.<br>
-          إذا أنشأت حساباً مجانياً باسم موقعك (مثلاً: <code>ayah-reader</code>)، يمكنك إدخاله هنا لتعرض اللوحة الإحصائيات مباشرة:
-        </p>
-        <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-          <input type="text" id="gcCodeInput" placeholder="اسم حسابك (مثلاً: ayah-reader)" style="flex:1;min-width:220px;padding:8px 14px;border:1px solid var(--line);border-radius:8px;font-family:inherit">
-          <button id="saveGcBtn" style="padding:8px 18px;background:var(--accent);color:#fff;border:0;border-radius:8px;font-family:inherit;font-weight:600;cursor:pointer">حفظ وعرض اللوحة</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--line)">
+        <div>
+          <p style="font-size:.92rem;font-weight:600;color:var(--accent)">الحساب المربوط: <code style="font-family:monospace;background:var(--accent-soft);padding:3px 8px;border-radius:6px">sharif101.goatcounter.com</code></p>
+          <p style="font-size:.82rem;color:var(--ink-3);margin-top:4px">يقوم بتسجيل عدد النقرات والزيارات اليومية والزوار الجدد وتفاصيل الأجهزة بدقة وبدون أي قواعد بيانات.</p>
         </div>
-        <a href="https://www.goatcounter.com/signup" target="_blank" rel="noopener">فتح صفحة إنشاء الحساب المجاني (30 ثانية) ↗</a>
+        <a href="https://sharif101.goatcounter.com" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#fff;text-decoration:none;padding:8px 18px;border-radius:8px;font-weight:600;font-size:.85rem;box-shadow:var(--shadow)">
+          فتح اللوحة في نافذة كاملة ↗
+        </a>
       </div>
 
-      <div id="frameWrap" style="display:none">
-        <iframe id="gcFrame" src=""></iframe>
+      <div id="frameWrap">
+        <iframe id="gcFrame" src="https://sharif101.goatcounter.com"></iframe>
       </div>
     </div>
   </div>
