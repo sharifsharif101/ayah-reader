@@ -5,16 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>قارئ الآيات · سورة البقرة</title>
 <meta name="theme-color" content="#EDE6D2" id="metaTheme">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Noto+Naskh+Arabic:wght@400;700&family=Readex+Pro:wght@300;400;500;600;700&family=Scheherazade+New:wght@400;700&display=swap" rel="stylesheet">
+<!-- الخطوط مستضافة داخل المشروع حتى تعمل القراءة دون اتصال -->
+<link rel="stylesheet" href="fonts/fonts.css">
+<!-- تطبيق ويب قابل للتثبيت ويعمل دون اتصال -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="قارئ الآيات">
 <style>
-/* خط احتياطي محلي لواجهة التحكم عند انقطاع الاتصال (الملفات ضمن public/fonts في المشروع) */
-@font-face{font-family:'Readex Pro Local';font-weight:400;font-display:swap;src:url('public/fonts/ReadexPro-Regular.ttf') format('truetype')}
-@font-face{font-family:'Readex Pro Local';font-weight:700;font-display:swap;src:url('public/fonts/ReadexPro-Bold.ttf') format('truetype')}
-
 :root{
-  --f-ui:'Readex Pro','Readex Pro Local','Tajawal','Segoe UI',Tahoma,sans-serif;
+  --f-ui:'Readex Pro','Tajawal','Segoe UI',Tahoma,sans-serif;
   --f-quran:'Amiri Quran','Amiri',serif;
   --r:8px; --r-lg:16px; --pill:300px;
   --ease:cubic-bezier(.16,1,.3,1);
@@ -1682,7 +1684,7 @@ function ttCommitNav(dir) {
 function animateTo(kind, from, target, vToward, onDone) {
   const dist = Math.abs(target - from);
   const v = Math.max(0, vToward);
-  const T = v > 0.1 ? clamp(Math.round(2.5 * dist / v), 220, 380) : (kind === 'back' ? 300 : 340);
+  const T = v > 0.1 ? clamp(Math.round(2.1 * dist / v), 180, 310) : (kind === 'back' ? 250 : 280);
   const s = dist > 0.5 ? Math.max(0.6, v * T / dist) : 1;
   const x1 = Math.min(0.3, 1 / s), y1 = Math.min(1, x1 * s);
 
@@ -2036,6 +2038,25 @@ function startupToast() {
   }
 }
 // يظهر التنبيه في كل زيارة من الجوال ما لم يختر الزائر «لا تُظهر لي هذه الرسالة مرة أخرى»
+/* ═════════ العمل دون اتصال (Service Worker) + تنبيه التحديث ═════════ */
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  const hadController = !!navigator.serviceWorker.controller;
+  let updateShown = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // أول تثبيت لا يحتاج تنبيهًا؛ التنبيه فقط عند وصول نسخة أحدث والصفحة مفتوحة
+    if (!hadController || updateShown) return;
+    updateShown = true;
+    toast('يوجد تحديث جديد للقارئ', { action: 'تحديث', onAction: () => location.reload(), ms: 12000 });
+  });
+  const registerSW = () => {
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      // التطبيق المثبّت قد يبقى مفتوحًا أيامًا: نفحص التحديثات كلما عاد إلى الواجهة
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    }).catch(() => {});
+  };
+  if (document.readyState === 'complete') registerSW(); else addEventListener('load', registerSW);
+}
+
 if (!S.fsHintOff && isMobileMode()) {
   setTimeout(() => showFsOnboarding((entering) => { if (!entering) startupToast(); }), 600);
 } else {

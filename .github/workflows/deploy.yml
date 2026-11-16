@@ -24,11 +24,19 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key -p ${{ secrets.SERVER_PORT }} ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ${{ secrets.TARGET_DIR }} && chmod 755 ${{ secrets.TARGET_DIR }}"
 
+      # كل push يعطي الـ Service Worker رقم إصدار جديد (رقم الـ commit)،
+      # فيثبّت المتصفح النسخة الجديدة ويمسح الكاش القديم تلقائيًا عند الزوار
+      - name: Stamp Service Worker Version
+        run: |
+          sed -i "s/__BUILD__/${GITHUB_SHA::8}/" sw.js
+          grep -n "const VERSION" sw.js
+
       - name: Sync Files to Server via Rsync
         run: |
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SERVER_PORT }}" \
             --exclude '.git' \
             --exclude '.github' \
+            --exclude 'tools' \
             ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.TARGET_DIR }}/
 
