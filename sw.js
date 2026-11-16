@@ -8,6 +8,7 @@ const VERSION = '__BUILD__';
 const PREFIX = 'ayah-reader-';
 const CACHE = PREFIX + VERSION;
 const PAGE = './';
+const PAGES = [PAGE, 'RRR/'];   // الصفحات التي تعمل دون اتصال: قارئ الآيات والقارئ المفتوح
 const ASSETS = [
   'fonts/fonts.css',
   'fonts/amiri-quran-400-arabic.woff2',
@@ -41,7 +42,7 @@ async function clean(res) {
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    await Promise.all([PAGE, ...ASSETS].map(async (u) => {
+    await Promise.all([...PAGES, ...ASSETS].map(async (u) => {
       const res = await fetch(new Request(new URL(u, scopeURL), { cache: 'reload' }));
       if (!res.ok) throw new Error('precache failed: ' + u);
       await cache.put(new URL(u, scopeURL).href, await clean(res));
@@ -59,20 +60,27 @@ self.addEventListener('activate', (event) => {
 });
 
 function isPage(req, url) {
-  return req.mode === 'navigate' || url.pathname === scopeURL.pathname || url.pathname === scopeURL.pathname + 'index.html';
+  return req.mode === 'navigate' || url.pathname.endsWith('.html') || !/\.[a-z0-9]+$/i.test(url.pathname);   // ملف html أو مجلد مثل /RRR
+}
+/* مفتاح الكاش لكل صفحة (بلا ?query): المجلد و index.html داخله نفس الصفحة،
+   و /RRR بلا شرطة أخيرة هو نفسه /RRR/ */
+function pageKey(url) {
+  let p = url.pathname.replace(/index\.html$/, '');
+  if (!p.endsWith('/') && !/\.[a-z0-9]+$/i.test(p)) p += '/';
+  return url.origin + p;
 }
 
-async function networkFirst() {
+async function networkFirst(key) {
   const cache = await caches.open(CACHE);
-  const fromNet = fetch(pageURL, { cache: 'no-cache', credentials: 'same-origin' }).then(async (res) => {
+  const fromNet = fetch(key, { cache: 'no-cache', credentials: 'same-origin' }).then(async (res) => {
     if (res.ok) {
       const c = await clean(res);
-      await cache.put(pageURL, c.clone());
+      await cache.put(key, c.clone());
       return c;
     }
     return res;
   });
-  const cached = await cache.match(pageURL);
+  const cached = await cache.match(key);
   if (!cached) return fromNet;   // أول زيارة: لا بديل عن الشبكة
   // شبكة بطيئة جدًا: نعرض النسخة المحفوظة بعد مهلة، والتحديث يكمل في الخلفية
   const timeout = new Promise((resolve) => setTimeout(() => resolve(cached), NETWORK_TIMEOUT));
@@ -95,5 +103,5 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== scopeURL.origin) return;                       // العدّاد والروابط الخارجية: كما هي
   if (url.pathname.startsWith(scopeURL.pathname + 'admin')) return;  // لوحة الإدارة تحتاج اتصالًا
   if (url.pathname.endsWith('/sw.js')) return;
-  event.respondWith(isPage(req, url) ? networkFirst() : cacheFirst(req));
+  event.respondWith(isPage(req, url) ? networkFirst(pageKey(url)) : cacheFirst(req));
 });
