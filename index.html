@@ -302,6 +302,37 @@ body.focus.chrome-on .chrome{opacity:1;pointer-events:auto;transform:none}
 body.focus:not(.chrome-on) .scroll{cursor:crosshair}
 body.focus .toast{bottom:96px}
 
+/* ───────── وضع التيك توك للجوال في ملء الشاشة ───────── */
+.tt-viewport{position:absolute;inset:0;z-index:2;overflow:hidden}
+.tt-track{position:absolute;inset:0;width:100%;height:100%}
+.tt-slide.tt-prev,.tt-slide.tt-next{display:none}
+body.focus.tiktok-active .tt-viewport{
+  position:absolute;inset:0;overflow:hidden;touch-action:none;
+  -webkit-user-select:none;user-select:none;
+}
+body.focus.tiktok-active .tt-track{
+  position:absolute;inset:0;width:100%;height:100%;
+  will-change:transform;touch-action:none;
+}
+body.focus.tiktok-active .tt-slide{
+  position:absolute;inset:0;width:100%;height:100%;display:flex;
+  padding:var(--pad-y) var(--pad-x);box-sizing:border-box;
+  background:var(--page);overflow-y:auto;overflow-x:hidden;
+  touch-action:none;box-shadow:0 -8px 26px rgba(0,0,0,.04),0 8px 26px rgba(0,0,0,.04);
+}
+:root[data-theme="night"] body.focus.tiktok-active .tt-slide{
+  box-shadow:0 -10px 30px rgba(0,0,0,.35),0 10px 30px rgba(0,0,0,.35);
+}
+body.focus.tiktok-active .tt-slide.tt-prev{
+  display:flex;transform:translate3d(0,-100%,0);
+}
+body.focus.tiktok-active .tt-slide.tt-curr{
+  display:flex;transform:translate3d(0,0,0);
+}
+body.focus.tiktok-active .tt-slide.tt-next{
+  display:flex;transform:translate3d(0,100%,0);
+}
+
 /* ───────── الاستجابة ───────── */
 @media (max-width:1280px){
   .tbtn span{display:none}
@@ -459,10 +490,26 @@ FORM: Operate — قارئ بمقاس تلقائي.
         <svg class="i paper-star top"><use href="#i-star"/></svg>
         <svg class="i paper-star bot"><use href="#i-star"/></svg>
       </div>
-      <div class="scroll" id="scroll" data-tool="pen" data-draw="1">
-        <div class="flow" id="flow">
-          <p class="basmala" id="basmala" hidden>بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</p>
-          <p class="verse" id="verse" aria-live="polite"></p>
+      <div class="tt-viewport" id="ttViewport">
+        <div class="tt-track" id="ttTrack">
+          <div class="tt-slide tt-prev" id="ttPrev" aria-hidden="true">
+            <div class="flow" id="flowPrev">
+              <p class="basmala" id="basmalaPrev" hidden>بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</p>
+              <p class="verse" id="versePrev"></p>
+            </div>
+          </div>
+          <div class="scroll tt-slide tt-curr" id="scroll" data-tool="pen" data-draw="1">
+            <div class="flow" id="flow">
+              <p class="basmala" id="basmala" hidden>بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</p>
+              <p class="verse" id="verse" aria-live="polite"></p>
+            </div>
+          </div>
+          <div class="tt-slide tt-next" id="ttNext" aria-hidden="true">
+            <div class="flow" id="flowNext">
+              <p class="basmala" id="basmalaNext" hidden>بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</p>
+              <p class="verse" id="verseNext"></p>
+            </div>
+          </div>
         </div>
       </div>
       <div class="veil-note" id="veilNote" hidden>
@@ -885,6 +932,9 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch
 /* ═════════ عناصر الصفحة ═════════ */
 const body = document.body, root = document.documentElement;
 const scrollEl = $('scroll'), flow = $('flow'), verseEl = $('verse'), basmalaEl = $('basmala');
+const ttViewport = $('ttViewport'), ttTrack = $('ttTrack'), ttPrev = $('ttPrev'), ttNext = $('ttNext');
+const flowPrev = $('flowPrev'), versePrev = $('versePrev'), basmalaPrev = $('basmalaPrev');
+const flowNext = $('flowNext'), verseNext = $('verseNext'), basmalaNext = $('basmalaNext');
 const veilNote = $('veilNote');
 const pillBtn = $('pillBtn'), pillNum = $('pillNum'), pillJuz = $('pillJuz');
 const prevBtn = $('prevBtn'), nextBtn = $('nextBtn');
@@ -925,6 +975,8 @@ function applyFont() {
   const f = FONTS[S.font];
   root.style.setProperty('--f-quran', f.css);
   flow.style.setProperty('--lh', f.lh);
+  if (flowPrev) flowPrev.style.setProperty('--lh', f.lh);
+  if (flowNext) flowNext.style.setProperty('--lh', f.lh);
   document.querySelectorAll('#fontOpts .opt').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === S.font)));
 }
 function applyScale() {
@@ -964,24 +1016,61 @@ function cycleTheme() { const keys = Object.keys(THEMES); setTheme(keys[(keys.in
 })();
 
 /* ═════════ عرض الآية والملاءمة التلقائية للحجم ═════════ */
-function renderVerse() {
-  const raw = verses[idx];
+function populateVerseEl(verseTarget, basmalaTarget, i) {
+  if (i < 0 || i >= N || !verseTarget) {
+    if (verseTarget) verseTarget.textContent = '';
+    if (basmalaTarget) basmalaTarget.hidden = true;
+    return;
+  }
+  const raw = verses[i];
   const m = raw.match(/^([\s\S]*?)\s*﴿([^﴾]+)﴾\s*$/);
   const text = m ? m[1] : raw;
-  const num = m ? m[2] : toAr(idx + 1);
+  const num = m ? m[2] : toAr(i + 1);
   const sp = text.lastIndexOf(' ');
   const head = sp > 0 ? text.slice(0, sp + 1) : '';
   const last = sp > 0 ? text.slice(sp + 1) : text;
-  verseEl.textContent = '';
-  if (head) verseEl.append(document.createTextNode(head));
+  verseTarget.textContent = '';
+  if (head) verseTarget.append(document.createTextNode(head));
   const tail = document.createElement('span'); tail.className = 'tail';
   tail.append(document.createTextNode(last));
   const mark = document.createElement('span'); mark.className = 'ayah-mark' + (num.length >= 3 ? ' d3' : '');
   const mn = document.createElement('span'); mn.textContent = num; mark.append(mn);
   mark.setAttribute('aria-label', 'رقم الآية ' + num);
-  tail.append(mark); verseEl.append(tail);
-  verseEl.classList.toggle('long', text.length > 140);
-  basmalaEl.hidden = idx !== 0;
+  tail.append(mark); verseTarget.append(tail);
+  verseTarget.classList.toggle('long', text.length > 140);
+  if (basmalaTarget) basmalaTarget.hidden = (i !== 0);
+}
+
+function renderVerse() {
+  populateVerseEl(verseEl, basmalaEl, idx);
+}
+
+function fitSlide(fl, sl, ayahIdx) {
+  if (ayahIdx < 0 || ayahIdx >= N || !fl || !sl) return;
+  const cs = getComputedStyle(sl);
+  const availW = (sl.clientWidth || scrollEl.clientWidth) - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
+  const availH = (sl.clientHeight || scrollEl.clientHeight) - parseFloat(cs.paddingTop || 0) - parseFloat(cs.paddingBottom || 0);
+  if (availW <= 40 || availH <= 40) return;
+  const minF = innerWidth < 640 ? 19 : 22;
+  const cap = Math.max(minF + 2, Math.min(168, availW / 5.4));
+  const fitsAt = (f) => { fl.style.fontSize = f + 'px'; return fl.offsetHeight <= availH; };
+  let best = minF;
+  if (fitsAt(minF)) {
+    if (fitsAt(cap)) best = cap;
+    else { let lo = minF, hi = cap; for (let k = 0; k < 9; k++) { const mid = (lo + hi) / 2; if (fitsAt(mid)) lo = mid; else hi = mid; } best = lo; }
+  }
+  const fPx = Math.max(minF, best * SCALES[S.scale]);
+  fl.style.fontSize = fPx.toFixed(2) + 'px';
+}
+
+function updateTTAyahs() {
+  if (!isTikTokActive()) return;
+  const prevIdx = idx > 0 ? idx - 1 : -1;
+  const nextIdx = idx < N - 1 ? idx + 1 : -1;
+  populateVerseEl(versePrev, basmalaPrev, prevIdx);
+  populateVerseEl(verseNext, basmalaNext, nextIdx);
+  if (prevIdx >= 0) fitSlide(flowPrev, ttPrev, prevIdx);
+  if (nextIdx >= 0) fitSlide(flowNext, ttNext, nextIdx);
 }
 
 let lastSig = '';
@@ -1010,6 +1099,7 @@ function fit() {
   }
   lastSig = sig;
   redraw();
+  if (typeof isTikTokActive === 'function' && isTikTokActive()) updateTTAyahs();
 }
 let fitRaf = 0;
 function scheduleFit() { if (fitRaf) return; fitRaf = requestAnimationFrame(() => { fitRaf = 0; fit(); }); }
@@ -1294,11 +1384,15 @@ function setFocus(on) {
   if (on) {
     if (root.requestFullscreen && !document.fullscreenElement) root.requestFullscreen().catch(() => {});
     lockScreen(); body.classList.add('chrome-on'); scheduleHide(2400);
+    if (typeof isMobileMode === 'function' && isMobileMode()) {
+      toast('مرّر للأعلى أو للأسفل للتنقّل كالتيك توك', { ms: 2200 });
+    }
   } else {
     body.classList.remove('chrome-on'); clearTimeout(chromeTimer);
     if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
     unlockScreen();
   }
+  if (typeof updateTikTokState === 'function') updateTikTokState();
   scheduleFit();
 }
 const toggleFocus = () => setFocus(!focusOn);
@@ -1415,6 +1509,7 @@ clearBtn.addEventListener('click', () => { clearStrokes(); });
 /* التقاط المؤشر: فأرة وقلم ولمس عبر Pointer Events */
 let swipe = null;
 scrollEl.addEventListener('pointerdown', (e) => {
+  if (typeof isTikTokActive === 'function' && isTikTokActive()) return;
   if (e.pointerType === 'mouse' && e.button !== 0) return;
   if (!e.isPrimary) return;
   if (S.tool === 'browse' || scrollEl.dataset.draw !== '1' && e.pointerType === 'touch') {
@@ -1445,6 +1540,7 @@ scrollEl.addEventListener('pointermove', (e) => {
 });
 function endStroke() { if (!drawing) return; drawing = false; if (cur) cur.end = performance.now(); cur = null; kick(); }
 scrollEl.addEventListener('pointerup', (e) => {
+  if (typeof isTikTokActive === 'function' && isTikTokActive()) return;
   if (swipe && S.tool === 'browse' || swipe && e.pointerType === 'touch') {
     const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y, dt = performance.now() - swipe.t;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6 && dt < 800) { dx > 0 ? next() : prev(); }   // اتجاه الكتاب العربي: السحب نحو اليمين = التالي
@@ -1457,9 +1553,272 @@ scrollEl.addEventListener('scroll', () => { if (strokes.length) kick(); }, { pas
 scrollEl.addEventListener('contextmenu', (e) => { if (drawing) e.preventDefault(); });
 addEventListener('blur', endStroke);
 
+/* ═════════ محرك التيك توك للجوال (تنقل رأسي سلس بين الآيات في ملء الشاشة) ═════════ */
+function isMobileMode() {
+  return window.innerWidth <= 820 || window.matchMedia('(pointer: coarse)').matches;
+}
+function isTikTokActive() {
+  return focusOn && isMobileMode();
+}
+function updateTikTokState() {
+  const active = isTikTokActive();
+  body.classList.toggle('tiktok-active', active);
+  if (active) {
+    updateTTAyahs();
+  } else {
+    if (ttTrack) {
+      ttTrack.style.transition = 'none';
+      ttTrack.style.transform = 'translate3d(0, 0, 0)';
+    }
+  }
+}
+window.addEventListener('resize', updateTikTokState);
+window.addEventListener('orientationchange', () => setTimeout(updateTikTokState, 150));
+
+let isAnimating = false;
+let isDragging = false;
+let axisDetermined = false;
+let isVerticalDrag = false;
+let dragStartX = 0, dragStartY = 0, dragStartTime = 0;
+let lastTouchY = 0, lastTouchT = 0;
+let touchPoints = [];
+let activePointerId = null;
+
+function handleFocusTap(e) {
+  if (!focusOn) return;
+  if (e && e.target && e.target.closest && e.target.closest('.chrome, .pop, #fHandle')) return;
+  if (body.classList.contains('chrome-on')) {
+    chromePin = false;
+    body.classList.remove('chrome-on');
+    clearTimeout(chromeTimer);
+  } else {
+    chromePin = true;
+    showChrome();
+    scheduleHide(3200);
+  }
+}
+
+function commitSlideNext(H, currentDy, vy) {
+  isAnimating = true;
+  const remainingDist = Math.max(20, H + currentDy);
+  const speed = Math.max(Math.abs(vy), 1.2);
+  const duration = clamp(Math.round(remainingDist / speed), 200, 320);
+
+  ttTrack.style.transition = `transform ${duration}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+  ttTrack.style.transform = `translate3d(0, -${H}px, 0)`;
+
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    ttTrack.removeEventListener('transitionend', finish);
+    clearTimeout(timeoutId);
+
+    if (navigator.vibrate) try { navigator.vibrate(10); } catch (_) {}
+    go(idx + 1, { instant: true });
+
+    ttTrack.style.transition = 'none';
+    ttTrack.style.transform = 'translate3d(0, 0, 0)';
+    updateTTAyahs();
+    isAnimating = false;
+  };
+
+  ttTrack.addEventListener('transitionend', finish);
+  const timeoutId = setTimeout(finish, duration + 60);
+}
+
+function commitSlidePrev(H, currentDy, vy) {
+  isAnimating = true;
+  const remainingDist = Math.max(20, H - currentDy);
+  const speed = Math.max(Math.abs(vy), 1.2);
+  const duration = clamp(Math.round(remainingDist / speed), 200, 320);
+
+  ttTrack.style.transition = `transform ${duration}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+  ttTrack.style.transform = `translate3d(0, ${H}px, 0)`;
+
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    ttTrack.removeEventListener('transitionend', finish);
+    clearTimeout(timeoutId);
+
+    if (navigator.vibrate) try { navigator.vibrate(10); } catch (_) {}
+    go(idx - 1, { instant: true });
+
+    ttTrack.style.transition = 'none';
+    ttTrack.style.transform = 'translate3d(0, 0, 0)';
+    updateTTAyahs();
+    isAnimating = false;
+  };
+
+  ttTrack.addEventListener('transitionend', finish);
+  const timeoutId = setTimeout(finish, duration + 60);
+}
+
+function snapBack(totalDy) {
+  isAnimating = true;
+  ttTrack.style.transition = 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)';
+  ttTrack.style.transform = 'translate3d(0, 0, 0)';
+
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    ttTrack.removeEventListener('transitionend', finish);
+    clearTimeout(timeoutId);
+    isAnimating = false;
+  };
+
+  ttTrack.addEventListener('transitionend', finish);
+  const timeoutId = setTimeout(finish, 290);
+
+  if (idx === N - 1 && totalDy < -40) {
+    toast('ختام سورة البقرة · اضغط مرة أخرى للعودة إلى أول آية', { ms: 3000 });
+  }
+}
+
+function onTTPointerDown(e) {
+  if (!isTikTokActive()) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  if (!e.isPrimary) return;
+  if (isAnimating) return;
+  if (e.target && e.target.closest && e.target.closest('.chrome, .pop, #fHandle')) return;
+
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  dragStartTime = performance.now();
+  lastTouchY = e.clientY;
+  lastTouchT = dragStartTime;
+  touchPoints = [{ y: e.clientY, t: dragStartTime }];
+  isDragging = false;
+  axisDetermined = false;
+  isVerticalDrag = false;
+  activePointerId = e.pointerId;
+}
+
+function onTTPointerMove(e) {
+  if (!isTikTokActive() || isAnimating) return;
+  if (activePointerId !== null && e.pointerId !== activePointerId) return;
+
+  const dx = e.clientX - dragStartX;
+  const dy = e.clientY - dragStartY;
+
+  if (!axisDetermined) {
+    if (Math.hypot(dx, dy) >= 8) {
+      axisDetermined = true;
+      isVerticalDrag = Math.abs(dy) >= Math.abs(dx) * 1.1;
+
+      if (isVerticalDrag && scrollable) {
+        const atBottom = scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 5;
+        const atTop = scrollEl.scrollTop <= 5;
+        if (dy < 0 && !atBottom) isVerticalDrag = false;
+        else if (dy > 0 && !atTop) isVerticalDrag = false;
+      }
+
+      if (isVerticalDrag) {
+        isDragging = true;
+        try { ttViewport.setPointerCapture(e.pointerId); } catch (_) {}
+        ttTrack.style.transition = 'none';
+      }
+    }
+  }
+
+  if (isDragging && isVerticalDrag) {
+    if (e.cancelable) e.preventDefault();
+    let deltaY = dy;
+    if (idx === 0 && dy > 0) deltaY = dy * 0.25;
+    else if (idx === N - 1 && dy < 0) deltaY = dy * 0.25;
+
+    ttTrack.style.transform = `translate3d(0, ${deltaY}px, 0)`;
+
+    const now = performance.now();
+    touchPoints.push({ y: e.clientY, t: now });
+    if (touchPoints.length > 5) touchPoints.shift();
+    lastTouchY = e.clientY;
+    lastTouchT = now;
+  }
+}
+
+function onTTPointerUp(e) {
+  if (!isTikTokActive()) return;
+  if (activePointerId !== null && e.pointerId !== activePointerId) return;
+  const pId = activePointerId;
+  activePointerId = null;
+  if (pId !== null) {
+    try { ttViewport.releasePointerCapture(pId); } catch (_) {}
+  }
+
+  if (!isDragging) {
+    const dt = performance.now() - dragStartTime;
+    const dist = Math.hypot(e.clientX - dragStartX, e.clientY - dragStartY);
+    if (dist < 10 && dt < 300) {
+      handleFocusTap(e);
+    }
+    return;
+  }
+
+  isDragging = false;
+  const totalDy = e.clientY - dragStartY;
+  const now = performance.now();
+
+  let recentVy = 0;
+  const recent = touchPoints.filter(p => now - p.t < 120);
+  if (recent.length >= 2) {
+    const first = recent[0], last = recent[recent.length - 1];
+    const dt = last.t - first.t;
+    if (dt > 5) recentVy = (last.y - first.y) / dt;
+  }
+  const totalDt = now - dragStartTime;
+  const gestureVy = totalDt > 10 ? (totalDy / totalDt) : 0;
+  const vy = Math.abs(recentVy) > Math.abs(gestureVy) ? recentVy : gestureVy;
+
+  const H = ttViewport.clientHeight || window.innerHeight;
+  const threshold = Math.min(120, H * 0.15);
+
+  const isFlickUp = totalDy < -30 && vy < -0.35;
+  const isDragUp = totalDy < -threshold;
+
+  const isFlickDown = totalDy > 30 && vy > 0.35;
+  const isDragDown = totalDy > threshold;
+
+  if ((isFlickUp || isDragUp) && idx < N - 1) {
+    commitSlideNext(H, totalDy, vy);
+  } else if ((isFlickDown || isDragDown) && idx > 0) {
+    commitSlidePrev(H, totalDy, vy);
+  } else {
+    snapBack(totalDy);
+  }
+}
+
+function onTTPointerCancel(e) {
+  if (!isTikTokActive()) return;
+  if (activePointerId !== null && e.pointerId === activePointerId) {
+    activePointerId = null;
+    if (isDragging) {
+      isDragging = false;
+      snapBack(0);
+    }
+  }
+}
+
+if (ttViewport) {
+  ttViewport.addEventListener('pointerdown', onTTPointerDown);
+  ttViewport.addEventListener('pointermove', onTTPointerMove);
+  ttViewport.addEventListener('pointerup', onTTPointerUp);
+  ttViewport.addEventListener('pointercancel', onTTPointerCancel);
+  ttViewport.addEventListener('touchmove', (e) => {
+    if (isTikTokActive() && isDragging && isVerticalDrag) {
+      if (e.cancelable) e.preventDefault();
+    }
+  }, { passive: false });
+}
+
 /* ═════════ إخفاء الآية للتسميع + النسخ ═════════ */
 function setVeil(on) {
   veiled = on; flow.classList.toggle('veiled', on); veilNote.hidden = !on;
+  if (flowPrev) flowPrev.classList.toggle('veiled', on);
+  if (flowNext) flowNext.classList.toggle('veiled', on);
   veilBtn.setAttribute('aria-pressed', String(on));
   veilBtn.querySelector('use').setAttribute('href', on ? '#i-eye-off' : '#i-eye');
   if (on) clearStrokes();
