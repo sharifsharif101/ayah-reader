@@ -292,13 +292,13 @@ body.focus .app{padding:0;gap:0;grid-template-rows:minmax(0,1fr)}
 body.focus .paper{border-radius:0;border:0}
 body.focus .paper::after,body.focus .paper-star{display:none}
 body.focus .scroll{border-radius:0;cursor:crosshair}
-body.focus .topbar,body.focus .deck{position:absolute;z-index:32;background:color-mix(in srgb,var(--page) 90%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transition:opacity .25s,transform .35s var(--ease)}
+body.focus .topbar,body.focus .deck{position:absolute;z-index:32;background:color-mix(in srgb,var(--page) 90%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transition:opacity .25s,transform .35s var(--ease),visibility 0s linear .25s}
 body.focus .topbar{top:0;inset-inline:0;padding:10px 16px;border-bottom:1px solid var(--line)}
 body.focus .deck{bottom:14px;inset-inline:14px;margin-inline:auto;max-width:1180px;box-shadow:var(--shadow)}
-body.focus .chrome{opacity:0;pointer-events:none}
+body.focus .chrome{opacity:0;pointer-events:none;visibility:hidden}
 body.focus .topbar.chrome{transform:translateY(-12px)}
 body.focus .deck.chrome{transform:translateY(14px)}
-body.focus.chrome-on .chrome{opacity:1;pointer-events:auto;transform:none}
+body.focus.chrome-on .chrome{opacity:1;pointer-events:auto;transform:none;visibility:visible;transition-delay:0s}
 body.focus:not(.chrome-on) .scroll{cursor:crosshair}
 body.focus .toast{bottom:96px}
 
@@ -1045,12 +1045,14 @@ function renderVerse() {
   populateVerseEl(verseEl, basmalaEl, idx);
 }
 
-function fitSlide(fl, sl, ayahIdx) {
-  if (ayahIdx < 0 || ayahIdx >= N || !fl || !sl) return;
-  const cs = getComputedStyle(sl);
-  const availW = (sl.clientWidth || scrollEl.clientWidth) - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
-  const availH = (sl.clientHeight || scrollEl.clientHeight) - parseFloat(cs.paddingTop || 0) - parseFloat(cs.paddingBottom || 0);
-  if (availW <= 40 || availH <= 40) return;
+/* حساب حجم الخط الملائم مع ذاكرة مؤقتة لكل آية — يمنع تكرار البحث الثنائي المكلف أثناء التمرير */
+const fitCache = new Map();
+let fitCacheSig = '';
+function fitFlowSize(fl, availW, availH, ayahIdx) {
+  const sig = [Math.round(availW), Math.round(availH), S.font, S.scale, innerWidth < 640 ? 1 : 0].join('|');
+  if (sig !== fitCacheSig) { fitCache.clear(); fitCacheSig = sig; }
+  const hit = fitCache.get(ayahIdx);
+  if (hit !== undefined) { fl.style.fontSize = hit.toFixed(2) + 'px'; return hit; }
   const minF = innerWidth < 640 ? 19 : 22;
   const cap = Math.max(minF + 2, Math.min(168, availW / 5.4));
   const fitsAt = (f) => { fl.style.fontSize = f + 'px'; return fl.offsetHeight <= availH; };
@@ -1061,6 +1063,17 @@ function fitSlide(fl, sl, ayahIdx) {
   }
   const fPx = Math.max(minF, best * SCALES[S.scale]);
   fl.style.fontSize = fPx.toFixed(2) + 'px';
+  fitCache.set(ayahIdx, fPx);
+  return fPx;
+}
+
+function fitSlide(fl, sl, ayahIdx) {
+  if (ayahIdx < 0 || ayahIdx >= N || !fl || !sl) return;
+  const cs = getComputedStyle(sl);
+  const availW = (sl.clientWidth || scrollEl.clientWidth) - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0);
+  const availH = (sl.clientHeight || scrollEl.clientHeight) - parseFloat(cs.paddingTop || 0) - parseFloat(cs.paddingBottom || 0);
+  if (availW <= 40 || availH <= 40) return;
+  fitFlowSize(fl, availW, availH, ayahIdx);
 }
 
 function updateTTAyahs() {
@@ -1072,6 +1085,21 @@ function updateTTAyahs() {
   if (prevIdx >= 0) fitSlide(flowPrev, ttPrev, prevIdx);
   if (nextIdx >= 0) fitSlide(flowNext, ttNext, nextIdx);
 }
+/* تحديث الشريحتين المجاورتين بعد رسم الإطار الحالي، لا في نفس إطار الهبوط */
+let ttNeighborsTimer = 0, ttNeighborsRaf = 0;
+function scheduleTTNeighbors() {
+  if (ttNeighborsRaf || ttNeighborsTimer) return;
+  ttNeighborsRaf = requestAnimationFrame(() => {
+    ttNeighborsRaf = 0;
+    ttNeighborsTimer = setTimeout(() => { ttNeighborsTimer = 0; updateTTAyahs(); }, 0);
+  });
+}
+function flushTTNeighbors() {
+  if (!ttNeighborsRaf && !ttNeighborsTimer) return;
+  cancelAnimationFrame(ttNeighborsRaf); clearTimeout(ttNeighborsTimer);
+  ttNeighborsRaf = ttNeighborsTimer = 0;
+  updateTTAyahs();
+}
 
 let lastSig = '';
 function fit() {
@@ -1079,16 +1107,7 @@ function fit() {
   const availW = scrollEl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
   const availH = scrollEl.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
   if (availW <= 40 || availH <= 40) return;
-  const minF = innerWidth < 640 ? 19 : 22;
-  const cap = Math.max(minF + 2, Math.min(168, availW / 5.4));
-  const fitsAt = (f) => { flow.style.fontSize = f + 'px'; return flow.offsetHeight <= availH; };
-  let best = minF;
-  if (fitsAt(minF)) {
-    if (fitsAt(cap)) best = cap;
-    else { let lo = minF, hi = cap; for (let k = 0; k < 9; k++) { const mid = (lo + hi) / 2; if (fitsAt(mid)) lo = mid; else hi = mid; } best = lo; }
-  }
-  fontPx = Math.max(minF, best * SCALES[S.scale]);
-  flow.style.fontSize = fontPx.toFixed(2) + 'px';
+  fontPx = fitFlowSize(flow, availW, availH, idx);
   scrollable = flow.offsetHeight > availH + 1;
   updateDrawMode();
   const sig = [fontPx.toFixed(1), Math.round(flow.offsetWidth), Math.round(flow.offsetHeight)].join('|');
@@ -1099,14 +1118,14 @@ function fit() {
   }
   lastSig = sig;
   redraw();
-  if (typeof isTikTokActive === 'function' && isTikTokActive()) updateTTAyahs();
+  if (typeof isTikTokActive === 'function' && isTikTokActive()) scheduleTTNeighbors();
 }
 let fitRaf = 0;
 function scheduleFit() { if (fitRaf) return; fitRaf = requestAnimationFrame(() => { fitRaf = 0; fit(); }); }
 new ResizeObserver(scheduleFit).observe(scrollEl);
 if (document.fonts) {
-  document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', scheduleFit);
-  document.fonts.ready.then(scheduleFit);
+  document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', () => { fitCache.clear(); scheduleFit(); });
+  document.fonts.ready.then(() => { fitCache.clear(); scheduleFit(); });
 }
 
 /* ═════════ التنقّل ═════════ */
@@ -1575,14 +1594,12 @@ function updateTikTokState() {
 window.addEventListener('resize', updateTikTokState);
 window.addEventListener('orientationchange', () => setTimeout(updateTikTokState, 150));
 
+/* حالة المحرك: حركة جارية (anim) + إيماءة جارية (gesture) + زخم تمرير الآيات الطويلة */
 let isAnimating = false;
-let isDragging = false;
-let axisDetermined = false;
-let isVerticalDrag = false;
-let dragStartX = 0, dragStartY = 0, dragStartTime = 0;
-let lastTouchY = 0, lastTouchT = 0;
-let touchPoints = [];
-let activePointerId = null;
+let anim = null;        // { kind: 'next' | 'prev' | 'back', target, end, stop }
+let gesture = null;     // { id, x0, y0, t0, mode: null|'track'|'scroll'|'none', lockY, base, offset, scrollStart, pts }
+let momentumRaf = 0;
+const TT_SLOP = 8;
 
 function handleFocusTap(e) {
   if (!focusOn) return;
@@ -1598,209 +1615,212 @@ function handleFocusTap(e) {
   }
 }
 
-function commitSlideNext(H, currentDy, vy) {
-  isAnimating = true;
-  const remainingDist = Math.max(20, H + currentDy);
-  const speed = Math.max(Math.abs(vy), 1.2);
-  const duration = clamp(Math.round(remainingDist / speed), 200, 320);
-
-  ttTrack.style.transition = `transform ${duration}ms cubic-bezier(0.22, 1, 0.36, 1)`;
-  ttTrack.style.transform = `translate3d(0, -${H}px, 0)`;
-
-  let done = false;
-  const finish = () => {
-    if (done) return;
-    done = true;
-    ttTrack.removeEventListener('transitionend', finish);
-    clearTimeout(timeoutId);
-
-    if (navigator.vibrate) try { navigator.vibrate(10); } catch (_) {}
-    go(idx + 1, { instant: true });
-
-    ttTrack.style.transition = 'none';
-    ttTrack.style.transform = 'translate3d(0, 0, 0)';
-    updateTTAyahs();
-    isAnimating = false;
-  };
-
-  ttTrack.addEventListener('transitionend', finish);
-  const timeoutId = setTimeout(finish, duration + 60);
+const ttH = () => ttViewport.clientHeight || window.innerHeight;
+function setTrackY(y) { ttTrack.style.transform = `translate3d(0, ${y}px, 0)`; }
+function readTrackY() {
+  const t = getComputedStyle(ttTrack).transform;
+  if (!t || t === 'none') return 0;
+  try { return new DOMMatrixReadOnly(t).m42; } catch (_) { return 0; }
 }
 
-function commitSlidePrev(H, currentDy, vy) {
-  isAnimating = true;
-  const remainingDist = Math.max(20, H - currentDy);
-  const speed = Math.max(Math.abs(vy), 1.2);
-  const duration = clamp(Math.round(remainingDist / speed), 200, 320);
-
-  ttTrack.style.transition = `transform ${duration}ms cubic-bezier(0.22, 1, 0.36, 1)`;
-  ttTrack.style.transform = `translate3d(0, ${H}px, 0)`;
-
-  let done = false;
-  const finish = () => {
-    if (done) return;
-    done = true;
-    ttTrack.removeEventListener('transitionend', finish);
-    clearTimeout(timeoutId);
-
-    if (navigator.vibrate) try { navigator.vibrate(10); } catch (_) {}
-    go(idx - 1, { instant: true });
-
-    ttTrack.style.transition = 'none';
-    ttTrack.style.transform = 'translate3d(0, 0, 0)';
-    updateTTAyahs();
-    isAnimating = false;
-  };
-
-  ttTrack.addEventListener('transitionend', finish);
-  const timeoutId = setTimeout(finish, duration + 60);
-}
-
-function snapBack(totalDy) {
-  isAnimating = true;
-  ttTrack.style.transition = 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)';
-  ttTrack.style.transform = 'translate3d(0, 0, 0)';
-
-  let done = false;
-  const finish = () => {
-    if (done) return;
-    done = true;
-    ttTrack.removeEventListener('transitionend', finish);
-    clearTimeout(timeoutId);
-    isAnimating = false;
-  };
-
-  ttTrack.addEventListener('transitionend', finish);
-  const timeoutId = setTimeout(finish, 290);
-
-  if (idx === N - 1 && totalDy < -40) {
-    toast('ختام سورة البقرة · اضغط مرة أخرى للعودة إلى أول آية', { ms: 3000 });
+/* مقاومة مطاطية غير خطية عند أول آية وآخر آية */
+function rubberTrack(o) {
+  if ((o > 0 && idx === 0) || (o < 0 && idx === N - 1)) {
+    const H = ttH(), a = Math.abs(o);
+    return Math.sign(o) * (1 - 1 / (a * 0.55 / H + 1)) * H;
   }
+  return o;
+}
+
+/* سرعة الإصبع (بكسل/مللي ثانية) من آخر ~100ms */
+function releaseVelocity(pts, now) {
+  const recent = pts.filter((p) => now - p.t < 100);
+  if (recent.length < 2) return 0;
+  const a = recent[0], b = recent[recent.length - 1];
+  const dt = b.t - a.t;
+  return dt > 4 ? (b.y - a.y) / dt : 0;
+}
+
+/* إتمام الانتقال إلى الآية المجاورة (الجيران تُحدَّث لاحقًا خارج إطار الهبوط) */
+function ttCommitNav(dir) {
+  go(idx + dir, { instant: true, dir });
+  if (navigator.vibrate) try { navigator.vibrate(10); } catch (_) {}
+}
+
+/* تحريك الشريط إلى target بمنحنى تبدأ سرعته بسرعة الإصبع لحظة الرفع */
+function animateTo(kind, from, target, vToward, onDone) {
+  const dist = Math.abs(target - from);
+  const v = Math.max(0, vToward);
+  const T = v > 0.1 ? clamp(Math.round(2.5 * dist / v), 220, 380) : (kind === 'back' ? 300 : 340);
+  const s = dist > 0.5 ? Math.max(0.6, v * T / dist) : 1;
+  const x1 = Math.min(0.3, 1 / s), y1 = Math.min(1, x1 * s);
+
+  ttTrack.style.transition = 'none';
+  setTrackY(from);
+  readTrackY();   // تثبيت نقطة البداية قبل تفعيل الانتقال
+  ttTrack.style.transition = `transform ${T}ms cubic-bezier(${x1.toFixed(3)}, ${y1.toFixed(3)}, 0.3, 1)`;
+  setTrackY(target);
+
+  isAnimating = true;
+  const a = { kind, target, done: false, timer: 0 };
+  const onTe = (e) => { if (e.target === ttTrack && e.propertyName === 'transform') a.end(); };
+  a.stop = () => {
+    if (a.done) return false;
+    a.done = true;
+    ttTrack.removeEventListener('transitionend', onTe);
+    clearTimeout(a.timer);
+    if (anim === a) anim = null;
+    isAnimating = false;
+    return true;
+  };
+  a.end = () => {
+    if (!a.stop()) return;
+    ttTrack.style.transition = 'none';
+    onDone();
+  };
+  ttTrack.addEventListener('transitionend', onTe);
+  a.timer = setTimeout(a.end, T + 80);
+  anim = a;
+}
+
+function slideTo(dir, from, v) {
+  const H = ttH();
+  const target = dir > 0 ? -H : H;
+  animateTo(dir > 0 ? 'next' : 'prev', from, target, v * Math.sign(target - from), () => {
+    ttCommitNav(dir);
+    setTrackY(0);
+  });
+}
+function snapBackFrom(from, v) {
+  animateTo('back', from, 0, v * Math.sign(0 - from), () => setTrackY(0));
+}
+
+/* إيقاف حركة جارية عند لمسة جديدة وإرجاع الإزاحة التي يكمل منها السحب */
+function interruptAnim() {
+  const a = anim;
+  if (!a) return 0;
+  const cur = readTrackY();
+  a.stop();
+  ttTrack.style.transition = 'none';
+  const H = ttH();
+  let base = cur;
+  if (a.kind === 'next') { ttCommitNav(1); base = cur + H; }
+  else if (a.kind === 'prev') { ttCommitNav(-1); base = cur - H; }
+  setTrackY(base);
+  return base;
+}
+
+/* زخم تمرير الآيات الطويلة بعد رفع الإصبع */
+function stopMomentum() { if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; } }
+function startMomentum(v) {
+  stopMomentum();
+  if (Math.abs(v) < 0.05) return;
+  let last = performance.now();
+  const step = (now) => {
+    const dt = Math.min(32, Math.max(1, now - last)); last = now;
+    const max = scrollEl.scrollHeight - scrollEl.clientHeight;
+    const nt = clamp(scrollEl.scrollTop + v * dt, 0, max);
+    scrollEl.scrollTop = nt;
+    v *= Math.pow(0.997, dt);
+    if (Math.abs(v) < 0.02 || nt <= 0 || nt >= max) { momentumRaf = 0; return; }
+    momentumRaf = requestAnimationFrame(step);
+  };
+  momentumRaf = requestAnimationFrame(step);
 }
 
 function onTTPointerDown(e) {
   if (!isTikTokActive()) return;
   if (e.pointerType === 'mouse' && e.button !== 0) return;
   if (!e.isPrimary) return;
-  if (isAnimating) return;
   if (e.target && e.target.closest && e.target.closest('.chrome, .pop, #fHandle')) return;
 
-  dragStartX = e.clientX;
-  dragStartY = e.clientY;
-  dragStartTime = performance.now();
-  lastTouchY = e.clientY;
-  lastTouchT = dragStartTime;
-  touchPoints = [{ y: e.clientY, t: dragStartTime }];
-  isDragging = false;
-  axisDetermined = false;
-  isVerticalDrag = false;
-  activePointerId = e.pointerId;
+  stopMomentum();
+  const interrupted = !!anim;
+  const base = interrupted ? interruptAnim() : 0;
+  flushTTNeighbors();
+
+  const now = performance.now();
+  gesture = {
+    id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: now,
+    mode: null, lockY: e.clientY, base, offset: base, scrollStart: 0,
+    pts: [{ y: e.clientY, t: now }],
+  };
+  if (interrupted) {
+    // اللمسة أمسكت الشريط وهو يتحرك: نكمل السحب مباشرة دون منطقة ميتة
+    gesture.mode = 'track';
+    try { ttViewport.setPointerCapture(e.pointerId); } catch (_) {}
+  }
 }
 
 function onTTPointerMove(e) {
-  if (!isTikTokActive() || isAnimating) return;
-  if (activePointerId !== null && e.pointerId !== activePointerId) return;
+  const g = gesture;
+  if (!g || e.pointerId !== g.id || !isTikTokActive()) return;
 
-  const dx = e.clientX - dragStartX;
-  const dy = e.clientY - dragStartY;
-
-  if (!axisDetermined) {
-    if (Math.hypot(dx, dy) >= 8) {
-      axisDetermined = true;
-      isVerticalDrag = Math.abs(dy) >= Math.abs(dx) * 1.1;
-
-      if (isVerticalDrag && scrollable) {
-        const atBottom = scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 5;
-        const atTop = scrollEl.scrollTop <= 5;
-        if (dy < 0 && !atBottom) isVerticalDrag = false;
-        else if (dy > 0 && !atTop) isVerticalDrag = false;
-      }
-
-      if (isVerticalDrag) {
-        isDragging = true;
-        try { ttViewport.setPointerCapture(e.pointerId); } catch (_) {}
-        ttTrack.style.transition = 'none';
-      }
-    }
+  if (!g.mode) {
+    const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+    if (Math.hypot(dx, dy) < TT_SLOP) return;
+    if (Math.abs(dy) < Math.abs(dx) * 1.1) { g.mode = 'none'; return; }
+    // القياس يبدأ من نقطة القفل حتى لا يقفز الشريط بمقدار منطقة السماح
+    g.lockY = e.clientY;
+    const max = scrollEl.scrollHeight - scrollEl.clientHeight;
+    const canScroll = max > 2 && (dy < 0 ? scrollEl.scrollTop < max - 2 : scrollEl.scrollTop > 2);
+    g.mode = canScroll ? 'scroll' : 'track';
+    g.scrollStart = scrollEl.scrollTop;
+    try { ttViewport.setPointerCapture(e.pointerId); } catch (_) {}
   }
+  if (g.mode === 'none') return;
+  if (e.cancelable) e.preventDefault();
 
-  if (isDragging && isVerticalDrag) {
-    if (e.cancelable) e.preventDefault();
-    let deltaY = dy;
-    if (idx === 0 && dy > 0) deltaY = dy * 0.25;
-    else if (idx === N - 1 && dy < 0) deltaY = dy * 0.25;
+  const now = performance.now();
+  g.pts.push({ y: e.clientY, t: now });
+  if (g.pts.length > 8) g.pts.shift();
 
-    ttTrack.style.transform = `translate3d(0, ${deltaY}px, 0)`;
-
-    const now = performance.now();
-    touchPoints.push({ y: e.clientY, t: now });
-    if (touchPoints.length > 5) touchPoints.shift();
-    lastTouchY = e.clientY;
-    lastTouchT = now;
+  const d = e.clientY - g.lockY;
+  if (g.mode === 'scroll') {
+    // تمرير يدوي للآية الطويلة، يتوقف عند الحافة دون أن ينتقل إلى آية أخرى في نفس الإيماءة
+    const max = scrollEl.scrollHeight - scrollEl.clientHeight;
+    scrollEl.scrollTop = clamp(g.scrollStart - d, 0, max);
+  } else {
+    g.offset = rubberTrack(g.base + d);
+    setTrackY(g.offset);
   }
 }
 
-function onTTPointerUp(e) {
+function endGesture(e, cancelled) {
+  const g = gesture;
+  if (!g || e.pointerId !== g.id) return;
+  gesture = null;
+  try { if (ttViewport.hasPointerCapture(g.id)) ttViewport.releasePointerCapture(g.id); } catch (_) {}
   if (!isTikTokActive()) return;
-  if (activePointerId !== null && e.pointerId !== activePointerId) return;
-  const pId = activePointerId;
-  activePointerId = null;
-  if (pId !== null) {
-    try { ttViewport.releasePointerCapture(pId); } catch (_) {}
-  }
 
-  if (!isDragging) {
-    const dt = performance.now() - dragStartTime;
-    const dist = Math.hypot(e.clientX - dragStartX, e.clientY - dragStartY);
-    if (dist < 10 && dt < 300) {
-      handleFocusTap(e);
-    }
+  if (!g.mode) {
+    if (cancelled) return;
+    const dt = performance.now() - g.t0;
+    const dist = Math.hypot(e.clientX - g.x0, e.clientY - g.y0);
+    if (dist < 10 && dt < 300) handleFocusTap(e);
     return;
   }
+  if (g.mode === 'none') return;
 
-  isDragging = false;
-  const totalDy = e.clientY - dragStartY;
-  const now = performance.now();
+  const v = cancelled ? 0 : releaseVelocity(g.pts, performance.now());
+  if (g.mode === 'scroll') { if (!cancelled) startMomentum(-v); return; }
 
-  let recentVy = 0;
-  const recent = touchPoints.filter(p => now - p.t < 120);
-  if (recent.length >= 2) {
-    const first = recent[0], last = recent[recent.length - 1];
-    const dt = last.t - first.t;
-    if (dt > 5) recentVy = (last.y - first.y) / dt;
-  }
-  const totalDt = now - dragStartTime;
-  const gestureVy = totalDt > 10 ? (totalDy / totalDt) : 0;
-  const vy = Math.abs(recentVy) > Math.abs(gestureVy) ? recentVy : gestureVy;
-
-  const H = ttViewport.clientHeight || window.innerHeight;
+  const off = g.offset;
+  if (cancelled) { snapBackFrom(off, 0); return; }
+  const H = ttH();
   const threshold = Math.min(120, H * 0.15);
+  const wantNext = (off < -threshold && v < 0.35) || (off < -30 && v < -0.35);
+  const wantPrev = (off > threshold && v > -0.35) || (off > 30 && v > 0.35);
 
-  const isFlickUp = totalDy < -30 && vy < -0.35;
-  const isDragUp = totalDy < -threshold;
-
-  const isFlickDown = totalDy > 30 && vy > 0.35;
-  const isDragDown = totalDy > threshold;
-
-  if ((isFlickUp || isDragUp) && idx < N - 1) {
-    commitSlideNext(H, totalDy, vy);
-  } else if ((isFlickDown || isDragDown) && idx > 0) {
-    commitSlidePrev(H, totalDy, vy);
-  } else {
-    snapBack(totalDy);
+  if (wantNext && idx < N - 1) slideTo(1, off, v);
+  else if (wantPrev && idx > 0) slideTo(-1, off, v);
+  else {
+    snapBackFrom(off, v);
+    if (idx === N - 1 && off < -40) toast('ختام سورة البقرة · اضغط مرة أخرى للعودة إلى أول آية', { ms: 3000 });
   }
 }
-
-function onTTPointerCancel(e) {
-  if (!isTikTokActive()) return;
-  if (activePointerId !== null && e.pointerId === activePointerId) {
-    activePointerId = null;
-    if (isDragging) {
-      isDragging = false;
-      snapBack(0);
-    }
-  }
-}
+const onTTPointerUp = (e) => endGesture(e, false);
+const onTTPointerCancel = (e) => endGesture(e, true);
 
 if (ttViewport) {
   ttViewport.addEventListener('pointerdown', onTTPointerDown);
@@ -1808,7 +1828,7 @@ if (ttViewport) {
   ttViewport.addEventListener('pointerup', onTTPointerUp);
   ttViewport.addEventListener('pointercancel', onTTPointerCancel);
   ttViewport.addEventListener('touchmove', (e) => {
-    if (isTikTokActive() && isDragging && isVerticalDrag) {
+    if (isTikTokActive() && gesture && gesture.mode && gesture.mode !== 'none') {
       if (e.cancelable) e.preventDefault();
     }
   }, { passive: false });
