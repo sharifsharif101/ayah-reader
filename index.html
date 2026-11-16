@@ -375,6 +375,37 @@ body.focus.tiktok-active .tt-slide.tt-next{
   .brand p{display:none}
   :root{--pad-y:10px}
 }
+/* ───────── تنبيه الزائر الجديد إلى زر ملء الشاشة (الجوال) ───────── */
+.onboard{position:fixed;inset:0;z-index:80;cursor:pointer;animation:obIn .4s var(--ease)}
+.onboard-shade{
+  position:absolute;inset:0;background:rgba(18,22,24,.5);
+  -webkit-backdrop-filter:grayscale(1);backdrop-filter:grayscale(1);
+  -webkit-mask:radial-gradient(circle at var(--ob-x) var(--ob-y),transparent var(--ob-r),#000 calc(var(--ob-r) + 1px));
+  mask:radial-gradient(circle at var(--ob-x) var(--ob-y),transparent var(--ob-r),#000 calc(var(--ob-r) + 1px));
+}
+.onboard-ring{
+  position:absolute;left:calc(var(--ob-x) - var(--ob-r));top:calc(var(--ob-y) - var(--ob-r));
+  width:calc(var(--ob-r) * 2);height:calc(var(--ob-r) * 2);border-radius:50%;
+  border:3px solid #fff;pointer-events:none;animation:obPulse 1.6s ease-out infinite;
+}
+.onboard-arrow{
+  position:absolute;left:calc(var(--ob-x) - 18px);top:calc(var(--ob-y) + var(--ob-r) + 10px);
+  width:36px;height:46px;color:#fff;pointer-events:none;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.45));animation:obArrow 1.1s ease-in-out infinite;
+}
+.onboard-card{
+  position:absolute;top:calc(var(--ob-y) + var(--ob-r) + 68px);inset-inline:16px;margin-inline:auto;max-width:340px;
+  padding:14px 18px 12px;border-radius:var(--r-lg);background:var(--surface);color:var(--ink);
+  box-shadow:var(--shadow);text-align:center;font-size:.95rem;line-height:1.7;cursor:default;
+}
+.onboard-card b{display:block;font-size:1.05rem;color:var(--accent);margin-bottom:2px}
+.onboard-acts{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 10px;margin-top:8px}
+.onboard-skip{padding:4px 8px;font-size:.82rem;color:var(--ink-3);text-decoration:underline;text-underline-offset:3px}
+.onboard-skip[data-act="later"]{color:var(--accent);font-weight:600}
+@keyframes obIn{from{opacity:0}to{opacity:1}}
+@keyframes obPulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.6)}100%{box-shadow:0 0 0 20px rgba(255,255,255,0)}}
+@keyframes obArrow{0%,100%{transform:translateY(10px);opacity:.25}50%{transform:translateY(0);opacity:1}}
+
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
@@ -1955,12 +1986,60 @@ sizeCanvases();
 renderVerse(); fit(); updateUI();
 S.idx = idx; save();
 
-if (!fromHash && idx > 0) {
-  const resumed = idx;
-  setTimeout(() => toast('استأنفنا من الآية ' + toAr(resumed + 1), { action: 'من البداية', onAction: () => go(0), ms: 4200 }), 500);
-} else if (!S.hint) {
-  S.hint = true; save();
-  setTimeout(() => toast('Space للتالية · اكتب G للانتقال · ؟ لكل الاختصارات', { ms: 4200 }), 700);
+/* ═════════ تنبيه الزائر الجديد على الجوال إلى زر ملء الشاشة (وضع التمرير العمودي) ═════════ */
+function showFsOnboarding(onClose) {
+  if (focusOn || document.getElementById('onboard')) return;
+  const ob = document.createElement('div');
+  ob.className = 'onboard'; ob.id = 'onboard';
+  ob.innerHTML =
+    '<div class="onboard-shade"></div><div class="onboard-ring"></div>' +
+    '<svg class="onboard-arrow" viewBox="0 0 24 30" aria-hidden="true"><path d="M12 28V4M4 12l8-8 8 8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+    '<div class="onboard-card" role="dialog" aria-label="تعريف بوضع القراءة بملء الشاشة">' +
+    '<b>اقرأ بملء الشاشة</b>اضغط على هذا الزر، ثم مرّر للأعلى أو للأسفل للتنقّل بين الآيات' +
+    '<div class="onboard-acts"><button type="button" class="onboard-skip" data-act="later">لاحقًا</button>' +
+    '<button type="button" class="onboard-skip" data-act="never">لا تُظهر لي هذه الرسالة مرة أخرى</button></div></div>';
+  const place = () => {
+    const r = fsBtn.getBoundingClientRect();
+    ob.style.setProperty('--ob-x', (r.left + r.width / 2) + 'px');
+    ob.style.setProperty('--ob-y', (r.top + r.height / 2) + 'px');
+    ob.style.setProperty('--ob-r', (Math.max(r.width, r.height) / 2 + 5) + 'px');
+  };
+  const close = (never, entering) => {
+    if (never) { S.fsHintOff = true; save(); }
+    ob.remove();
+    removeEventListener('resize', place);
+    removeEventListener('keydown', onKey, true);
+    if (onClose) onClose(entering);
+  };
+  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
+  ob.addEventListener('click', (e) => {
+    if (e.target.closest('.onboard-card') && !e.target.closest('.onboard-skip')) return;
+    const r = fsBtn.getBoundingClientRect(), pad = 10;
+    const onBtn = e.clientX >= r.left - pad && e.clientX <= r.right + pad && e.clientY >= r.top - pad && e.clientY <= r.bottom + pad;
+    const act = e.target.closest('.onboard-skip');
+    close(!!act && act.dataset.act === 'never', onBtn);
+    if (onBtn) fsBtn.click();   // ضمن نفس النقرة حتى يسمح المتصفح بملء الشاشة
+  });
+  place();
+  addEventListener('resize', place);
+  addEventListener('keydown', onKey, true);
+  body.append(ob);
+}
+
+function startupToast() {
+  if (!fromHash && idx > 0) {
+    const resumed = idx;
+    setTimeout(() => toast('استأنفنا من الآية ' + toAr(resumed + 1), { action: 'من البداية', onAction: () => go(0), ms: 4200 }), 500);
+  } else if (!S.hint) {
+    S.hint = true; save();
+    setTimeout(() => toast('Space للتالية · اكتب G للانتقال · ؟ لكل الاختصارات', { ms: 4200 }), 700);
+  }
+}
+// يظهر التنبيه في كل زيارة من الجوال ما لم يختر الزائر «لا تُظهر لي هذه الرسالة مرة أخرى»
+if (!S.fsHintOff && isMobileMode()) {
+  setTimeout(() => showFsOnboarding((entering) => { if (!entering) startupToast(); }), 600);
+} else {
+  startupToast();
 }
 })();
 </script>
